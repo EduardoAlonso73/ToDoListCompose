@@ -1,30 +1,37 @@
 package com.example.todolistapp.core.data.networking.util
 
 import com.example.todolistapp.core.domain.util.ErrorEntity
-import com.example.todolistapp.core.domain.util.ResultEntity
+import com.example.todolistapp.core.domain.util.ResultDataEntity
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 
 abstract class BaseRepository {
-    protected suspend fun <R, E> safeApiCall(
-        apiToBeCalled: suspend () -> Response<R>,
-        bodyHandler: (R) -> ResultEntity<E>
-    ): ResultEntity<E> = withContext(IO) {
+    protected suspend inline fun <R, En> safeApiCall(
+        crossinline apiToBeCalled: suspend () -> Response<R>,
+        crossinline bodyHandler: (R) -> ResultDataEntity<En, ErrorEntity.Network>
+    ): ResultDataEntity<En, ErrorEntity.Network> = withContext(IO) {
         return@withContext try {
             val response = apiToBeCalled()
             if (!response.isSuccessful) {
-                return@withContext ResultEntity(
-                    error = ErrorEntity.ServiceError(response.code().toString(), response.message())
+                return@withContext ResultDataEntity.error(
+                    error = ErrorEntity.Network.ServiceError(
+                        response.code().toString(),
+                        response.message()
+                    )
                 )
             } else {
-                val body = response.body() ?: return@withContext ResultEntity(
-                    error = ErrorEntity.EmptyBodyError,
+                val body = response.body() ?: return@withContext ResultDataEntity.error(
+                    error = ErrorEntity.Network.EmptyBodyError,
                 )
                 return@withContext bodyHandler(body)
             }
         } catch (throwable: Exception) {
-            ResultEntity<E>(error = ErrorEntity.UnknownError(throwable))
+            ResultDataEntity.error<En, ErrorEntity.Network>(
+                error = ErrorEntity.Network.UnknownError(
+                    throwable
+                )
+            )
         }
     }
 }

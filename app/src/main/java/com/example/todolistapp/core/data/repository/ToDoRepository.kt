@@ -5,13 +5,17 @@ import com.example.todolistapp.core.data.networking.ToDoApi
 import com.example.todolistapp.core.data.networking.util.BaseRepository
 import com.example.todolistapp.core.domain.repository.ToDoRepositoryBase
 import com.example.todolistapp.core.domain.usecase.GetToDo.GetToDoEntity
-import com.example.todolistapp.core.domain.util.ResultEntity
+import com.example.todolistapp.core.domain.util.ErrorEntity
+import com.example.todolistapp.core.domain.util.ResultDataEntity
+
 
 class ToDoRepository(private val toDoApi: ToDoApi) : ToDoRepositoryBase, BaseRepository() {
-    override suspend fun getToDoList(): ResultEntity<List<GetToDoEntity>> {
+    override suspend fun getToDoList(): ResultDataEntity<List<GetToDoEntity>, ErrorEntity.Network> {
         return safeApiCall(apiToBeCalled = { toDoApi.fetchToDoList() }) {
-            return@safeApiCall ResultEntity(data = it.toDoToEntity())
+            return@safeApiCall ResultDataEntity.success(data = it.toDoToEntity())
 
         }
     }
+
+
 }

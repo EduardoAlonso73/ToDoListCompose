@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.todolistapp.core.domain.usecase.GetToDo.GetToDoEntity
 import com.example.todolistapp.core.domain.usecase.GetToDo.GetToDoUseCase
 import com.example.todolistapp.core.domain.util.ErrorEntity
+import com.example.todolistapp.core.domain.util.getResult
 import com.example.todolistapp.ui.utils.Constants.emptyString
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -33,30 +34,38 @@ class ToDoViewModel @Inject constructor(private val getToDo: GetToDoUseCase) : V
         viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(isLoader = true) }
             val response = getToDo.invoke()
-            response.error?.let {
-                return@launch _event.emit(
-                    when (it) {
-                        is ErrorEntity.ServiceError -> ToDoEvent.ServiceError
-                        else -> ToDoEvent.GenericError
-
-                    }
-                )
-            }
-
-            val amountTasksCompleted = response.data.orEmpty().count { it.completed }
-            val amountPendingTasks = response.data.orEmpty().count { !it.completed }
-            return@launch _state.update {
-                it.copy(
-                    toDoListPending = response.data.orEmpty().filter { task -> !task.completed },
-                    toDoListCompleted = response.data.orEmpty().filter { task -> task.completed },
-                    amountTasksCompleted = "$amountTasksCompleted",
-                    amountPendingTasks = "$amountPendingTasks",
-                )
-            }
-
+            response.getResult(
+                onSuccess = { successHandling(it) },
+                onError = { errorHandling(it) }
+            )
 
         }.invokeOnCompletion {
             _state.update { it.copy(isLoader = false) }
+        }
+    }
+
+    private fun successHandling(data: List<GetToDoEntity>?) {
+        val amountTasksCompleted = data.orEmpty().count { it.completed }
+        val amountPendingTasks = data.orEmpty().count { !it.completed }
+        return _state.update {
+            it.copy(
+                toDoListPending = data.orEmpty().filter { task -> !task.completed },
+                toDoListCompleted = data.orEmpty().filter { task -> task.completed },
+                amountTasksCompleted = "$amountTasksCompleted",
+                amountPendingTasks = "$amountPendingTasks",
+            )
+        }
+    }
+
+    private suspend fun errorHandling(errorEntity: ErrorEntity.Network?) {
+        errorEntity?.let {
+            return _event.emit(
+                when (it) {
+                    is ErrorEntity.Network.ServiceError -> ToDoEvent.ServiceError
+                    else -> ToDoEvent.GenericError
+
+                }
+            )
         }
     }
 }
